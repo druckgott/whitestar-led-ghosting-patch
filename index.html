@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Whitestar LED Ghosting Patch</title>
+<meta name="description" content="Independent browser tool: timing adjustment of the lamp matrix for LED lamps on Whitestar pinball machines. Works with The Simpsons Pinball Party (TSPP) and others. Runs locally, uploads nothing.">
+<style>
+:root{--bg:#f7f6f2;--card:#fff;--ink:#1d1d1b;--mute:#5d5b55;--line:#dcd9d0;--acc:#0b6bcb;--ok:#1a7f37;--bad:#c62828;--warn:#9a6700;--ghost:#e8590c;--lamp:#f5b700}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#141413;--card:#1e1e1c;--ink:#ecebe6;--mute:#a9a69c;--line:#3a3934;--acc:#5aa9ff;--ok:#4cc26a;--bad:#ff6b6b;--warn:#e3b341;--ghost:#ff8a3d;--lamp:#ffd23f}}
+:root[data-theme=dark]{--bg:#141413;--card:#1e1e1c;--ink:#ecebe6;--mute:#a9a69c;--line:#3a3934;--acc:#5aa9ff;--ok:#4cc26a;--bad:#ff6b6b;--warn:#e3b341;--ghost:#ff8a3d;--lamp:#ffd23f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.7rem;line-height:1.2;margin:.2em 0 .3em}
+h2{font-size:1.25rem;margin:2.2em 0 .6em}
+h3{font-size:1.02rem;margin:1.4em 0 .4em}
+p,li{color:var(--ink)}
+.mute{color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+header .row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.lang button{background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:4px 10px;cursor:pointer;font:inherit}
+.lang button[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
+html[lang=de] [data-l=en],html[lang=en] [data-l=de]{display:none}
+#drop{display:block;margin-top:8px;border:2px dashed var(--line);border-radius:12px;padding:26px 16px;text-align:center;cursor:pointer}
+#drop.hover{border-color:var(--acc)}
+#drop input{display:none}
+.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:8px;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+ul.checks{list-style:none;padding:0;margin:14px 0}
+ul.checks li{padding:3px 0 3px 26px;position:relative;overflow-wrap:anywhere}
+ul.checks li::before{position:absolute;left:0;font-weight:700}
+ul.checks li.ok::before{content:"✓";color:var(--ok)}
+ul.checks li.bad::before{content:"✗";color:var(--bad)}
+ul.checks li.info::before{content:"•";color:var(--mute)}
+.tag{display:inline-block;font-size:.8rem;border-radius:6px;padding:1px 7px;border:1px solid currentColor}
+.tag.m{color:var(--ok)}.tag.f{color:var(--acc)}.tag.v{color:var(--warn)}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.tw{overflow-x:auto}
+code{font:.9em ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+.sim-ctl{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:8px 0 12px}
+.sim-ctl label{display:flex;gap:6px;align-items:center}
+.sim-ctl select,.sim-ctl input{font:inherit}
+svg{display:block;width:100%;height:auto}
+svg text{fill:var(--mute);font:11px system-ui,sans-serif}
+svg .ttl{fill:var(--ink);font-weight:700;font-size:12px}
+.pf{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 14px}
+.pfc{border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.pfc h4{margin:0 0 8px;font-size:1rem}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;max-width:300px;margin:0 auto}
+.bulb{aspect-ratio:1;border-radius:50%;border:1px solid var(--line);position:relative;font-size:9px;color:var(--mute);display:flex;align-items:center;justify-content:center}
+.bulb.hl{outline:2px solid var(--ghost);outline-offset:2px}
+.pfc .say{margin:8px 0 0;font-weight:600}
+.pfc .say.bad{color:var(--ghost)}.pfc .say.good{color:var(--ok)}
+@media (max-width:520px){.pf{grid-template-columns:1fr}}
+.warnbox{border-left:4px solid var(--warn);padding:8px 12px;background:var(--card)}
+footer{margin-top:3em;font-size:.9rem;color:var(--mute)}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="row">
+    <div class="mute">Whitestar · LED ghosting · independent tool</div>
+    <div class="lang" role="group" aria-label="Language">
+      <button data-set="en" aria-pressed="true">EN</button>
+      <button data-set="de" aria-pressed="false">DE</button>
+    </div>
+  </div>
+  <h1><span data-l="en">LED ghosting patch for Whitestar pinball machines</span><span data-l="de">LED-Ghosting-Patch für Whitestar-Flipper</span></h1>
+  <p data-l="en">With LEDs in the lamp matrix, a lamp can glow faintly when the lamp one row further in the same column is lit. On <b>The Simpsons Pinball Party (TSPP)</b> this is lamp n−8, for example Shoot Again (lamp 3) glowing while lamp 11 is on. This page changes the lamp driver of <b>your own</b> CPU ROM so that the ghost is gone. Everything runs in your browser; the file is not uploaded.</p>
+  <p class="mute" data-l="en">This is a compatibility adjustment of the lamp-matrix timing for LED lamps on hardware that was designed for incandescent bulbs. Independent tool, not affiliated with, endorsed by or connected to Stern Pinball, Sega or any rights holder. No ROM data is included, stored or distributed.</p>
+  <p data-l="de">Mit LEDs in der Lampenmatrix glimmt eine Lampe leicht, wenn die Lampe eine Zeile weiter in derselben Spalte leuchtet. Bei <b>The Simpsons Pinball Party (TSPP)</b> ist das Lampe n−8, zum Beispiel Shoot Again (Lampe 3), während Lampe 11 an ist. Diese Seite ändert den Lampentreiber in <b>deiner eigenen</b> CPU-ROM so, dass der Geist weg ist. Alles läuft in deinem Browser; die Datei wird nicht hochgeladen.</p>
+  <p class="mute" data-l="de">Es handelt sich um eine Anpassung des Lampenmatrix-Timings an LED-Leuchtmittel auf Hardware, die für Glühbirnen ausgelegt wurde. Unabhängiges Werkzeug, ohne Verbindung zu Stern Pinball, Sega oder anderen Rechteinhabern und nicht von ihnen unterstützt. Es enthält, speichert und verbreitet keine ROM-Daten.</p>
+</header>
+
+<section class="card" aria-labelledby="h-patch">
+  <h2 id="h-patch" style="margin-top:0"><span data-l="en">Patch your ROM</span><span data-l="de">ROM patchen</span></h2>
+  <label id="drop">
+    <input type="file" id="file">
+    <b data-l="en">Choose or drop your CPU ROM</b><b data-l="de">CPU-ROM wählen oder hierher ziehen</b><br>
+    <span class="mute" data-l="en">128 KB file, e.g. <code>spp-cpu.500</code> from your EPROM or your PinMAME set</span>
+    <span class="mute" data-l="de">128-KB-Datei, z. B. <code>spp-cpu.500</code> aus deinem EPROM oder PinMAME-Satz</span>
+  </label>
+  <ul class="checks" id="checks" aria-live="polite"></ul>
+  <div class="warnbox" style="margin-bottom:12px">
+    <p style="margin:.2em 0" data-l="en"><b>At your own risk.</b> You use this patcher and the adjusted file entirely at your own risk. The authors accept no liability for any damage to your machine, its boards, lamps, EPROMs, data (settings, audits, high scores) or anything else, nor for any consequence of using it. Keep your original EPROM.</p>
+    <p style="margin:.2em 0" data-l="de"><b>Auf eigene Gefahr.</b> Du nutzt diesen Patcher und die geänderte Datei vollständig auf eigenes Risiko. Die Autoren haften nicht für Schäden an deinem Gerät, seinen Platinen, Lampen, EPROMs, Daten (Einstellungen, Audits, Highscores) oder sonstigem, auch nicht für Folgen der Nutzung. Bewahre dein Original-EPROM auf.</p>
+    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="agree" style="margin-top:5px">
+      <span data-l="en">I use this at my own risk. I am entitled to use the ROM file I process, I use the result only on my own machine, and I will not pass the adjusted file on to anyone.</span><span data-l="de">Ich nutze das auf eigenes Risiko. Ich bin berechtigt, die verarbeitete ROM-Datei zu verwenden, nutze das Ergebnis nur an meinem eigenen Gerät und gebe die geänderte Datei nicht weiter.</span></label>
+  </div>
+  <button class="btn" id="dl" disabled><span data-l="en">Save adjusted copy of your file</span><span data-l="de">Geänderte Kopie deiner Datei speichern</span></button>
+  <p class="mute" style="margin:.6em 0 0;font-size:.9rem" data-l="en">The copy is made from your own file, inside your browser, and saved on your computer. This site does not host, provide or receive any ROM.</p>
+  <p class="mute" style="margin:.6em 0 0;font-size:.9rem" data-l="de">Die Kopie entsteht aus deiner eigenen Datei, in deinem Browser, und wird auf deinem Rechner gespeichert. Diese Seite stellt keine ROM bereit, speichert keine und empfängt keine.</p>
+</section>
+
+<section aria-labelledby="h-what">
+  <h2 id="h-what"><span data-l="en">What the patch changes</span><span data-l="de">Was der Patch ändert</span></h2>
+  <div data-l="en">
+    <p>The lamps are a matrix: one row is switched on at a time, together with the column lines of the lamps that should light in that row. Every step of the lamp interrupt the original program does this:</p>
+    <ol><li>switch the row off <b>and</b> clear the column lines,</li><li>compute the next row,</li><li>put the new column data out, then switch the new row on.</li></ol>
+    <p>The patch changes two things in this sequence and nothing else:</p>
+    <ol>
+      <li><b>The old column data stays on</b> until the new data replaces it, instead of being cleared together with the row. The row that was just switched off can finish turning off through its own lamps, which were lit anyway.</li>
+      <li><b>Rows without any lit lamp are no longer switched on.</b> The only exception is row 1: it gets a pulse of 2.5 µs, because the watchdog of the I/O board listens on that output. In our circuit calculation the pulse is far too short to make the row conduct.</li>
+    </ol>
+    <p>The new output step (29 bytes) goes into unused space at the end of the ROM; the old step jumps there. The checksum is re-balanced so that the game's own ROM self-test still passes. In total 48 bytes differ from the original.</p>
+    <h3>What stays the same</h3>
+    <ul>
+      <li>The row is switched off at the same moment as before. The lamp interrupt runs a few microseconds longer; in the emulator the game, lamp shows and switch scanning keep their speed (no growing delay).</li>
+      <li>The version text (e.g. "CPU 5.00") is <b>not</b> changed. The game compares it with the copy in its battery memory at power-up; a change would reset all settings, audits and high scores. With this patch nothing is reset.</li>
+      <li>Only the checksum shown in the test menu is different (TSPP 5.00: <code>$D9FF</code> instead of <code>$5BF0</code>). That is how you recognise your adjusted chip.</li>
+    </ul>
+  </div>
+  <div data-l="de">
+    <p>Die Lampen bilden eine Matrix: Immer ist eine Zeile eingeschaltet, dazu die Spaltenleitungen der Lampen, die in dieser Zeile leuchten sollen. Bei jedem Schritt des Lampen-Interrupts macht das Originalprogramm:</p>
+    <ol><li>Zeile aus <b>und</b> Spaltenleitungen löschen,</li><li>nächste Zeile berechnen,</li><li>neue Spaltendaten ausgeben, dann die neue Zeile einschalten.</li></ol>
+    <p>Der Patch ändert an diesem Ablauf zwei Dinge und sonst nichts:</p>
+    <ol>
+      <li><b>Die alten Spaltendaten bleiben stehen</b>, bis die neuen sie ersetzen, statt mit der Zeile gelöscht zu werden. Die gerade abgeschaltete Zeile kann so über ihre eigenen Lampen, die ohnehin leuchteten, fertig abschalten.</li>
+      <li><b>Zeilen ohne leuchtende Lampe werden nicht mehr eingeschaltet.</b> Einzige Ausnahme ist Zeile 1: Sie bekommt einen Impuls von 2,5 µs, weil der Watchdog des I/O-Boards an diesem Ausgang hängt. Nach unserer Schaltungsrechnung ist der Impuls viel zu kurz, um die Zeile leiten zu lassen.</li>
+    </ol>
+    <p>Der neue Ausgabeschritt (29 Bytes) liegt in ungenutztem Platz am Ende der ROM; der alte Schritt springt dorthin. Die Prüfsumme wird so ausgeglichen, dass der ROM-Selbsttest des Spiels weiter besteht. Insgesamt unterscheiden sich 48 Bytes vom Original.</p>
+    <h3>Was gleich bleibt</h3>
+    <ul>
+      <li>Die Zeile geht im selben Moment aus wie vorher. Der Lampen-Interrupt dauert einige Mikrosekunden länger; im Emulator behalten Spiel, Lampenshows und Schalterabfrage ihr Tempo (kein wachsender Versatz).</li>
+      <li>Der Versionstext (z. B. „CPU 5.00“) wird <b>nicht</b> geändert. Das Spiel vergleicht ihn beim Einschalten mit der Kopie im batteriegepufferten Speicher; eine Änderung würde alle Einstellungen, Audits und Highscores zurücksetzen. Mit diesem Patch wird nichts zurückgesetzt.</li>
+      <li>Nur die im Testmenü angezeigte Prüfsumme ist anders (TSPP 5.00: <code>$D9FF</code> statt <code>$5BF0</code>). Daran erkennst du deinen geänderten Chip.</li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="h-sim">
+  <h2 id="h-sim"><span data-l="en">Simulation: original vs. patched</span><span data-l="de">Simulation: Original gegen gepatcht</span></h2>
+  <p class="mute" data-l="en">One switch-over from row 1 (lamps 1–8) to row 2 (lamps 9–16). Lamp 11 is on; we watch lamp 3, one row above in the same column. Shapes of the curves come from a circuit model, not from an oscilloscope. Only the end result is measured (below).</p>
+  <p class="mute" data-l="de">Ein Wechsel von Zeile 1 (Lampen 1–8) auf Zeile 2 (Lampen 9–16). Lampe 11 ist an; wir beobachten Lampe 3, eine Zeile darüber in derselben Spalte. Die Kurvenformen stammen aus einem Schaltungsmodell, nicht vom Oszilloskop. Gemessen ist nur das Endergebnis (unten).</p>
+  <div class="card">
+    <div class="sim-ctl">
+      <label><span data-l="en">Situation</span><span data-l="de">Lage</span>
+        <select id="scen">
+          <option value="1">Single Lamp Test 11</option>
+          <option value="2">Lamp 1 + lamp 11</option>
+        </select></label>
+      <label title="Drain-gate capacitance of the row transistor (Miller capacitance)"><span data-l="en">Row transistor slowness (C<sub>gd</sub>)</span><span data-l="de">Trägheit Zeilentransistor (C<sub>gd</sub>)</span>
+        <input type="range" id="cgd" min="100" max="450" step="10" value="200"><output id="cgdv">200 pF</output></label>
+      <button class="btn" id="play" style="padding:6px 14px" aria-pressed="true"></button>
+    </div>
+    <div class="pf" id="pf"></div>
+    <svg id="sim" viewBox="0 0 660 470" role="img" aria-label="Timing diagram original vs patched"></svg>
+    <p class="mute" style="margin:.6em 0 0" data-l="en">Derived with the model from the current measured on a TSPP: C<sub>gd</sub> ≈ 170–215 pF. In the model the patch stays ghost-free up to about 250 pF.</p>
+    <p class="mute" style="margin:.6em 0 0" data-l="de">Mit dem Modell aus dem an einer TSPP gemessenen Strom abgeleitet: C<sub>gd</sub> ≈ 170–215 pF. Im Modell bleibt der Patch bis etwa 250 pF geisterfrei.</p>
+  </div>
+  <div data-l="en">
+    <h3>Why the ghost appears</h3>
+    <p>According to our circuit model: the row transistors are switched through a high-value resistor, so they turn off slowly. When the row goes off while its column lines are cleared, nothing pulls the row wire up, and the transistor stays half on. As soon as the column data for the <i>next</i> row arrive, current flows through the lamp in the old row of that column: the ghost. A filament bulb needs far more current to glow, so it never showed; an LED glows at microamps.</p>
+    <p>With the patch the old row finishes turning off through its own lamps while their column data are still out. Rows without lamps are never switched on, so they have nothing to turn off.</p>
+  </div>
+  <div data-l="de">
+    <h3>Warum der Geist entsteht</h3>
+    <p>Nach unserem Schaltungsmodell: Die Zeilentransistoren werden über einen hochohmigen Widerstand geschaltet und gehen deshalb langsam aus. Wird die Zeile abgeschaltet, während ihre Spaltenleitungen gelöscht sind, zieht nichts die Zeilenleitung hoch, und der Transistor bleibt halb an. Sobald die Spaltendaten der <i>nächsten</i> Zeile kommen, fließt Strom durch die Lampe der alten Zeile in dieser Spalte: der Geist. Eine Glühbirne braucht viel mehr Strom zum Leuchten, deshalb fiel das früher nicht auf; eine LED leuchtet schon bei Mikroampere.</p>
+    <p>Mit dem Patch schaltet die alte Zeile über ihre eigenen Lampen fertig ab, solange deren Spaltendaten noch anliegen. Zeilen ohne Lampen werden gar nicht erst eingeschaltet und müssen daher auch nicht abschalten.</p>
+  </div>
+</section>
+
+<section aria-labelledby="h-res">
+  <h2 id="h-res"><span data-l="en">Results</span><span data-l="de">Ergebnisse</span></h2>
+  <div class="tw"><table>
+    <thead><tr><th data-l="en">Check</th><th data-l="de">Prüfung</th><th>Original</th><th data-l="en">Patched</th><th data-l="de">Gepatcht</th><th data-l="en">How</th><th data-l="de">Wie</th></tr></thead>
+    <tbody>
+      <tr><td><span data-l="en">Current through LED of lamp 3 while lamp 11 is on (TSPP 5.00)</span><span data-l="de">Strom durch LED von Lampe 3, während Lampe 11 leuchtet (TSPP 5.00)</span></td><td>60–110 µA</td><td>0.0 µA</td><td><span class="tag m" data-l="en">measured</span><span class="tag m" data-l="de">gemessen</span> <span data-l="en">multimeter in series, real machine</span><span data-l="de">Multimeter in Reihe, echtes Gerät</span></td></tr>
+      <tr><td><span data-l="en">Same LED (lamp 3) while any other lamp is selected in the single lamp test</span><span data-l="de">Dieselbe LED (Lampe 3), während im Single Lamp Test eine andere Lampe gewählt ist</span></td><td>–</td><td>0.0 µA</td><td><span class="tag m" data-l="en">measured</span><span class="tag m" data-l="de">gemessen</span></td></tr>
+      <tr><td><span data-l="en">Same lamps lit, same lamp-on time (±0.3 %), same watchdog timing</span><span data-l="de">Dieselben Lampen an, gleiche Leuchtzeit (±0,3 %), gleicher Watchdog-Takt</span></td><td colspan="2"><span data-l="en">identical in all ROMs listed below</span><span data-l="de">gleich in allen ROMs unten</span></td><td><span class="tag m" data-l="en">emulator</span><span class="tag m" data-l="de">Emulator</span> MAME</td></tr>
+      <tr><td><span data-l="en">Brightness of the LEDs</span><span data-l="de">Helligkeit der LEDs</span></td><td>100 %</td><td>≈ 101–105 %</td><td><span class="tag f" data-l="en">model</span><span class="tag f" data-l="de">Modell</span></td></tr>
+    </tbody>
+  </table></div>
+  <h3><span data-l="en">ROMs</span><span data-l="de">ROMs</span></h3>
+  <div class="tw"><table id="romtab"><thead><tr><th>ROM</th><th>Status</th><th data-l="en">Test-menu checksum after patch</th><th data-l="de">Prüfsumme im Testmenü danach</th></tr></thead><tbody></tbody></table></div>
+  <p class="mute" data-l="en">Other Whitestar CPU ROMs: the patcher searches for the lamp driver and refuses unless every safety check passes (exactly one match of each step, checksum intact, row table as expected, nothing jumps into the replaced code, enough free space). Such ROMs are untested; test them in PinMAME first.</p>
+  <p class="mute" data-l="de">Andere Whitestar-CPU-ROMs: Der Patcher sucht den Lampentreiber und lehnt ab, wenn nicht jede Sicherheitsprüfung besteht (genau ein Treffer je Schritt, Prüfsumme intakt, Zeilentabelle wie erwartet, kein Sprung in den ersetzten Code, genug freier Platz). Solche ROMs sind ungetestet; erst in PinMAME ausprobieren.</p>
+</section>
+
+<section aria-labelledby="h-how">
+  <h2 id="h-how"><span data-l="en">Installing</span><span data-l="de">Einbau</span></h2>
+  <ol data-l="en">
+    <li>Read your CPU EPROM (or use the file from your PinMAME set) and keep it; <b>keep the original chip</b>.</li>
+    <li>Patch it here and check that the page shows a green result.</li>
+    <li>Optional: run the patched file in PinMAME.</li>
+    <li>Burn it to a new EPROM of the same type and fit it. Test menu → checksum should show the value from the table.</li>
+    <li>To undo: put the original chip back. Nothing in the battery memory changes.</li>
+  </ol>
+  <ol data-l="de">
+    <li>CPU-EPROM auslesen (oder die Datei aus deinem PinMAME-Satz nehmen) und aufbewahren; <b>den Original-Chip behalten</b>.</li>
+    <li>Hier patchen und prüfen, dass die Seite ein grünes Ergebnis zeigt.</li>
+    <li>Optional: die geänderte Datei in PinMAME starten.</li>
+    <li>Auf ein neues EPROM gleichen Typs brennen und einsetzen. Testmenü → Prüfsumme sollte den Wert aus der Tabelle zeigen.</li>
+    <li>Rückbau: Original-Chip wieder einsetzen. Im batteriegepufferten Speicher ändert sich nichts.</li>
+  </ol>
+</section>
+
+<section aria-labelledby="h-legal">
+  <h2 id="h-legal"><span data-l="en">Legal</span><span data-l="de">Rechtliches</span></h2>
+  <div class="warnbox">
+    <p data-l="en">This is an independent hobby project. It is not affiliated with, endorsed or supported by Stern Pinball, Sega or any rights holder. Names of games and companies are used only to say which machines the tool works with. The tool contains <b>no ROM data</b>: it only reads a file you supply, on your computer, and writes our own code into it. Use it only with ROMs you are entitled to use, on your own machine, and do not pass adjusted files on. No warranty; you modify your machine at your own risk (MIT License).</p>
+    <p data-l="de">Dies ist ein unabhängiges Hobbyprojekt, ohne Verbindung zu Stern Pinball, Sega oder anderen Rechteinhabern und nicht von ihnen unterstützt. Namen von Spielen und Firmen stehen nur dafür, mit welchen Geräten das Werkzeug funktioniert. Das Werkzeug enthält <b>keine ROM-Daten</b>: Es liest nur eine Datei, die du selbst angibst, auf deinem Rechner, und schreibt unseren eigenen Code hinein. Nutze es nur mit ROMs, die du verwenden darfst, an deinem eigenen Gerät, und gib keine geänderten Dateien weiter. Keine Gewährleistung; Änderungen am Gerät auf eigene Gefahr (MIT-Lizenz).</p>
+  </div>
+</section>
+
+<footer><a href="https://github.com/druckgott/whitestar-led-ghosting-patch">Source on GitHub</a> · MIT License · <span data-l="en">independent tool, no ROM data included</span><span data-l="de">unabhängiges Werkzeug, keine ROM-Daten enthalten</span></footer>
+</main>
+
+<script src="patch.js"></script>
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const T = (en, de) => document.documentElement.lang === "de" ? de : en;
+
+// language
+function setLang(l) {
+  document.documentElement.lang = l;
+  document.querySelectorAll(".lang button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.set === l));
+  try { localStorage.setItem("lang", l); } catch (e) {}
+  drawSim(); fillRoms(); if (last) show(last);
+}
+document.querySelectorAll(".lang button").forEach((b) => b.onclick = () => setLang(b.dataset.set));
+
+// ROM table
+const STATUS = { device: ["on a real machine (measured)", "am echten Gerät (gemessen)"], emulator: ["emulator only", "nur Emulator"] };
+const SUMS = { "24d2562c6250c6234fa3ff0675290986fc064495": "$D9FF", "8f9975559192311e053bf738237d060703faffdd": "$37FF", "c19e2b44e0122837ede484fa6603dadfc68900a5": "$A1FF", "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06": "$59FF", "85b466d3bcf502ecf0600e37c2fda5e622c533b2": "$7DFF" };
+function fillRoms() {
+  $("#romtab tbody").innerHTML = Object.values(LedPatch.KNOWN).map((k) =>
+    `<tr><td>${k.name}</td><td><span class="tag ${k.status === "device" ? "m" : "v"}">${T(...STATUS[k.status])}</span></td><td><code>${SUMS[k.out] || "–"}</code></td></tr>`).join("");
+}
+
+// patcher
+let last = null, outBlob = null, outName = "";
+const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+async function handle(file) {
+  const rom = new Uint8Array(await file.arrayBuffer());
+  const sha = hex(await crypto.subtle.digest("SHA-1", rom));
+  const r = LedPatch.analyse(rom, sha);
+  let out = null, osha = null;
+  if (r.ok) { out = LedPatch.apply(rom, r.plan); osha = hex(await crypto.subtle.digest("SHA-1", out)); }
+  last = { file, rom, sha, r, out, osha };
+  show(last);
+}
+function show({ file, sha, r, out, osha }) {
+  const li = (cls, txt) => `<li class="${cls}">${txt}</li>`;
+  let h = li("info", `${file.name} · ${file.size} bytes · SHA1 <code>${sha}</code>`);
+  if (r.known) h += li("ok", T(`Known ROM: ${r.known.name}`, `Bekannte ROM: ${r.known.name}`));
+  else if (r.ok) h += li("info", T("Unknown ROM – the lamp driver was found and all safety checks passed. Untested: try it in PinMAME first.", "Unbekannte ROM – Lampentreiber gefunden, alle Sicherheitsprüfungen bestanden. Ungetestet: erst in PinMAME ausprobieren."));
+  r.reasons.forEach((m) => h += li("bad", m));
+  if (r.ok) {
+    const good = !r.known || r.known.out === osha;
+    h += li(good ? "ok" : "bad", T("Patched: 48 bytes changed, checksum re-balanced", "Gepatcht: 48 Bytes geändert, Prüfsumme ausgeglichen") + ` · SHA1 <code>${osha}</code>` +
+      (r.known ? (good ? T(" = expected result", " = erwartetes Ergebnis") : T(" ≠ expected result, do not use", " ≠ erwartetes Ergebnis, nicht verwenden")) : ""));
+    h += li("info", T(`Test-menu checksum after burning: $${LedPatch.sum16(out).toString(16).toUpperCase()}`, `Prüfsumme im Testmenü nach dem Brennen: $${LedPatch.sum16(out).toString(16).toUpperCase()}`));
+    if (good) {
+      const dot = file.name.lastIndexOf(".");
+      outName = dot > 0 ? file.name.slice(0, dot) + "_led" + file.name.slice(dot) : file.name + "_led";
+      outBlob = new Blob([out], { type: "application/octet-stream" });
+    } else outBlob = null;
+  } else outBlob = null;
+  $("#checks").innerHTML = h;
+  syncDl();
+}
+const syncDl = () => { $("#dl").disabled = !(outBlob && $("#agree").checked); };
+$("#agree").onchange = syncDl;
+$("#file").onchange = (e) => e.target.files[0] && handle(e.target.files[0]);
+const drop = $("#drop");
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("hover"); };
+drop.ondragleave = () => drop.classList.remove("hover");
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("hover"); e.dataTransfer.files[0] && handle(e.dataTransfer.files[0]); };
+$("#dl").onclick = () => { if (!outBlob) return; const a = document.createElement("a"); a.href = URL.createObjectURL(outBlob); a.download = outName; a.click(); URL.revokeObjectURL(a.href); };
+
+// simulation (schematic; rise time of the row wire = 0.4 µs per pF of Cgd, from our circuit model)
+const T0 = -60, T1 = 260, X0 = 150, X1 = 645;
+const xs = (t) => X0 + (t - T0) / (T1 - T0) * (X1 - X0);
+let cursor = null, anim = null;
+function model(patched, scen, cgd) {
+  const rise = 0.4 * cgd, tNew = patched ? 100.5 : 96, tRow2 = patched ? 107 : 102;
+  const row1On = scen === 2 || !patched;                   // patched: empty row 1 is never switched on
+  const oldData = patched && scen === 2;                   // old columns stay until tNew
+  const riseStart = !row1On ? null : oldData ? 0 : tNew;   // row wire is pulled up only when a column is on
+  const wire = (t) => !row1On ? 1 : t < 0 ? 0 : t < riseStart ? 0 : Math.min(1, (t - riseStart) / rise);
+  const col3 = (t) => t >= tNew;
+  const ghost = (t) => (t >= 0 && col3(t) && row1On) ? (1 - wire(t)) : 0;
+  return { rise, tNew, tRow2, row1On, oldData, wire, ghost, col3 };
+}
+function drawSim() {
+  const scen = +$("#scen").value, cgd = +$("#cgd").value;
+  $("#cgdv").textContent = cgd + " pF";
+  let s = "";
+  [[false, T("Original", "Original"), 10], [true, T("Patched", "Gepatcht"), 240]].forEach(([p, title, y0]) => {
+    const m = model(p, scen, cgd);
+    s += `<text class="ttl" x="4" y="${y0 + 12}">${title}</text>`;
+    const tracks = [
+      [T("Row 1 command", "Zeile 1 Befehl"), (t) => m.row1On && t < 0 ? 1 : 0, "var(--acc)"],
+      [T("Row 1 wire (high = off)", "Zeile 1 Leitung (oben = aus)"), m.wire, "var(--mute)"],
+      [T("Columns: old row", "Spalten: alte Zeile"), (t) => scen === 2 && (t < 0 || (m.oldData && t < m.tNew)) ? 1 : 0, "var(--acc)"],
+      [T("Columns: lamp 11", "Spalten: Lampe 11"), (t) => m.col3(t) ? 1 : 0, "var(--acc)"],
+      [T("Row 2 command", "Zeile 2 Befehl"), (t) => t >= m.tRow2 ? 1 : 0, "var(--acc)"],
+      [T("Ghost current lamp 3", "Geist-Strom Lampe 3"), m.ghost, "var(--ghost)"],
+    ];
+    tracks.forEach(([name, f, col], i) => {
+      const y = y0 + 26 + i * 32, h = 20;
+      s += `<text x="4" y="${y + 14}">${name}</text><line x1="${X0}" x2="${X1}" y1="${y + h}" y2="${y + h}" stroke="var(--line)"/>`;
+      let d = "";
+      for (let t = T0; t <= T1; t += 0.5) d += (d ? "L" : "M") + xs(t).toFixed(1) + "," + (y + h - f(t) * h).toFixed(1);
+      s += `<path d="${d}L${xs(T1)},${y + h}L${xs(T0)},${y + h}Z" fill="${col}" fill-opacity=".15" stroke="none"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2"/>`;
+    });
+    s += `<line x1="${xs(0)}" x2="${xs(0)}" y1="${y0 + 20}" y2="${y0 + 218}" stroke="var(--mute)" stroke-dasharray="3 3"/>`;
+  });
+  for (let t = 0; t <= T1; t += 50) s += `<text x="${xs(t) - 8}" y="466">${t} µs</text>`;
+  if (cursor !== null) s += `<line x1="${xs(cursor)}" x2="${xs(cursor)}" y1="20" y2="455" stroke="var(--ink)" stroke-width="1.5"/>`;
+  $("#sim").innerHTML = s;
+  // lamp pictures: rows 1 and 2 of the matrix; the eye averages, so lamp 3 shows the ghost
+  // averaged over the step (made clearly visible), plus a flash while ghost current flows at the cursor.
+  const avg = (p) => { const m = model(p, scen, cgd); let a = 0; for (let t = 0; t < 400; t += 0.5) a += m.ghost(t) * 0.5; return a; };
+  const panel = (p) => {
+    const m = model(p, scen, cgd), a = avg(p), g = a > 0.5 ? Math.min(0.75, 0.3 + a / 120) : 0;
+    const t = cursor;
+    // live (cursor running): what flows at this instant; paused: average as the eye sees it
+    const level = (n) => {
+      if (t === null) return n === 11 || (scen === 2 && n === 1) ? 1 : n === 3 ? g : 0;
+      if (n === 11) return t >= m.tRow2 ? 1 : 0;
+      if (n === 1 && scen === 2) return t < 0 ? 1 : (m.oldData && t < m.tNew ? 1 - m.wire(t) : 0);
+      if (n === 3) return Math.min(1, m.ghost(t) * 1.2);
+      return 0;
+    };
+    let cells = "";
+    for (let n = 1; n <= 16; n++) {
+      const lvl = level(n);
+      cells += `<div class="bulb${n === 3 ? " hl" : ""}" style="background:color-mix(in srgb, var(--lamp) ${Math.round(lvl * 100)}%, var(--card))">${n}</div>`;
+    }
+    const say = g ? `<p class="say bad">${T("Lamp 3 glows (ghost)", "Lampe 3 glimmt (Geist)")}</p>` : `<p class="say good">${T("Lamp 3 stays dark", "Lampe 3 bleibt dunkel")}</p>`;
+    return `<div class="pfc"><h4>${p ? T("Patched", "Gepatcht") : "Original"}</h4><div class="grid">${cells}</div>${say}</div>`;
+  };
+  $("#pf").innerHTML = panel(false) + panel(true);
+}
+$("#scen").onchange = drawSim; $("#cgd").oninput = drawSim;
+// autoplay: cursor sweeps the time axis in a loop (4 s per sweep); button pauses/resumes
+let playing = !matchMedia("(prefers-reduced-motion: reduce)").matches, t0 = performance.now();
+const loop = (now) => { if (!playing) return; cursor = T0 + ((now - t0) % 4000) / 4000 * (T1 - T0); drawSim(); anim = requestAnimationFrame(loop); };
+const setPlay = (on) => {
+  playing = on; $("#play").setAttribute("aria-pressed", on);
+  $("#play").innerHTML = on ? `<span data-l="en">Pause</span><span data-l="de">Anhalten</span>` : `<span data-l="en">Autoplay</span><span data-l="de">Automatisch abspielen</span>`;
+  cancelAnimationFrame(anim); if (on) { t0 = performance.now(); anim = requestAnimationFrame(loop); } else drawSim();
+};
+$("#play").onclick = () => setPlay(!playing);
+
+let l0 = "en"; try { l0 = localStorage.getItem("lang") || (navigator.language || "en").slice(0, 2); } catch (e) {}
+setLang(l0 === "de" ? "de" : "en");
+setPlay(playing);
+</script>
+</body>
+</html>
