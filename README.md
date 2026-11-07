@@ -85,7 +85,23 @@ Independent hobby project, not affiliated with, endorsed or supported by Stern P
 any rights holder. Game and company names only describe compatibility. This repository
 contains **no ROM data**; you need your own ROM. Use it only with ROMs you are entitled to use,
 on your own machine, and do not pass adjusted files on. Before saving, the page asks you
-to confirm exactly this. MIT License, no warranty.
+to confirm exactly this. No warranty.
+
+## License / Lizenz
+
+MIT License with an attribution requirement, see [LICENSE](LICENSE). Every copy, fork,
+modified version or derived work (including websites and apps built on it) must visibly link
+to the original repository, in its documentation and, if it has one, in its user interface:
+
+**https://github.com/druckgott/whitestar-led-ghosting-patch**
+
+Modified versions must say that they are modified.
+
+**DE:** MIT-Lizenz mit Namensnennungspflicht, siehe [LICENSE](LICENSE). Jede Kopie, jeder Fork,
+jede geänderte Fassung und jedes abgeleitete Werk (auch Webseiten und Apps darauf) muss
+sichtbar auf das Original-Repository verweisen, in der Dokumentation und, falls vorhanden, in
+der Oberfläche: https://github.com/druckgott/whitestar-led-ghosting-patch. Geänderte Fassungen
+müssen als geändert gekennzeichnet sein.
 
 ---
 

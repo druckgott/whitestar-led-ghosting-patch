@@ -1,7 +1,8 @@
 // LED ghosting patch for Stern Whitestar CPU ROMs (MC6809, 128 KB).
 // Runs in the browser and in Node. Contains no bytes of any original ROM:
 // it searches the user's ROM for the lamp matrix driver and writes our own code.
-// MIT License, see LICENSE.
+// MIT License with attribution requirement, see LICENSE.
+// Original: https://github.com/druckgott/whitestar-led-ghosting-patch
 (function (root) {
   "use strict";
 

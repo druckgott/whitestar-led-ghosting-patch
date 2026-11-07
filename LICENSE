@@ -1,6 +1,7 @@
-MIT License
+MIT License with Attribution Requirement
 
-Copyright (c) 2026 whitestar-led-ghosting-patch contributors
+Copyright (c) 2026 druckgott
+Original repository: https://github.com/druckgott/whitestar-led-ghosting-patch
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -9,8 +10,20 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+2. Attribution: Any copy, fork, modification, derivative work, redistribution
+   or publication of the Software or of substantial portions of it, including
+   any website, app or service built on it, must contain a clearly visible
+   reference to the original repository:
+
+       https://github.com/druckgott/whitestar-led-ghosting-patch
+
+   The reference must appear in the accompanying documentation (e.g. README)
+   and, where the work has a user interface (e.g. a web page), in that user
+   interface. Modified versions must state that they are modified and must
+   not present themselves as the original.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
