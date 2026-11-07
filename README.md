@@ -6,7 +6,23 @@ incandescent bulbs. Works with The Simpsons Pinball Party (TSPP) and others. Ope
 choose your own CPU ROM, save the adjusted copy of it. Nothing is installed, nothing is uploaded:
 the file stays in your browser.
 
-**Patcher:** https://druckgott.github.io/whitestar-led-ghosting-patch/
+## Start (Windows)
+
+1. **Code → Download ZIP** on this page, unzip it anywhere.
+2. Double-click **`start.bat`**. Your browser opens the patcher with the full description.
+   A black window stays open; close it when you are done.
+
+`start.bat` only runs `serve.ps1`: a tiny web server built into Windows PowerShell, reachable
+only from your own computer (`http://localhost:8792`). Nothing is installed, nothing is sent
+anywhere, and this project does not host the tool online. Windows may ask once whether to run a
+downloaded file; both files are plain text, you can read them first.
+
+Other systems: open `index.html` in a current browser, or run `python3 -m http.server` in this
+folder and open the address it prints.
+
+**Start (Deutsch):** Code → Download ZIP, entpacken, `start.bat` doppelklicken. Der Browser
+öffnet Patcher und Beschreibung von deinem eigenen Rechner aus; das schwarze Fenster am Ende
+schließen. Nichts wird installiert oder hochgeladen, online gehostet wird nichts.
 
 > ## ⚠️ At your own risk / Auf eigene Gefahr
 >
