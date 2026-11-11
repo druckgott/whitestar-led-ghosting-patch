@@ -20,7 +20,7 @@
     "12875c845c12b6676aa0af7c717fdf074156d938": { name: "The Simpsons Pinball Party CPU 3.00", out: "c19e2b44e0122837ede484fa6603dadfc68900a5", status: "emulator", noAlt: true },
     "78d793cecbc6561a891ff8007f33c63ec5515e9f": { name: "The Simpsons Pinball Party CPU 2.04", out: "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06", status: "emulator", noAlt: true },
     "bd6fd25e17cee40d6bb842367b1ce922bbd46003": { name: "The Lord of the Rings CPU 8.00", out: "85b466d3bcf502ecf0600e37c2fda5e622c533b2", altOut: "c1c37212c983c40cfca011b2f93451b8949b4efb", status: "emulator" },
-    "2aab64eee57e9569c3cc1bde28cda69ff4cacc69": { name: "Playboy CPU 5.00", out: "b394296977983a0ec401cd574f54758052878488", altOut: "b7bdbd65b3c97d74a8814bd774ee4bb8bdc72c30", status: "emulator" },
+    "2aab64eee57e9569c3cc1bde28cda69ff4cacc69": { name: "Playboy CPU 5.00", out: "b394296977983a0ec401cd574f54758052878488", altOut: "b7bdbd65b3c97d74a8814bd774ee4bb8bdc72c30", status: "emulator", altStatus: "report" },
   };
   const MARGIN = 16;             // unknown ROMs: keep 16 fill bytes after the last used byte
 

@@ -84,7 +84,7 @@ footer{margin-top:3em;font-size:.9rem;color:var(--mute)}
     <span class="mute" data-l="de">128-KB-Datei, z. B. <code>spp-cpu.500</code> aus deinem EPROM oder PinMAME-Satz</span>
   </label>
   <label id="altbox" style="display:none;gap:8px;align-items:flex-start;margin:8px 0"><input type="checkbox" id="alt" style="margin-top:5px">
-    <span data-l="en"><b>Alternative patch</b> – only if the regular patch still leaves ghosting on your machine. Switches the row off earlier; lamps about 5–8 % dimmer. Emulator-tested, not yet on a real machine.</span><span data-l="de"><b>Alternativer Patch</b> – nur, wenn der reguläre Patch an deinem Gerät noch Ghosting zeigt. Schaltet die Zeile früher aus; Lampen etwa 5–8 % dunkler. Im Emulator geprüft, noch nicht am Gerät.</span></label>
+    <span data-l="en"><b>Alternative patch</b> – only if the regular patch still leaves ghosting on your machine. Switches the row off earlier; lamps about 5–8 % dimmer. Fixed the ghosting on a real Playboy (user report); other ROMs emulator-tested.</span><span data-l="de"><b>Alternativer Patch</b> – nur, wenn der reguläre Patch an deinem Gerät noch Ghosting zeigt. Schaltet die Zeile früher aus; Lampen etwa 5–8 % dunkler. Hat an einem echten Playboy das Ghosting beseitigt (Nutzerbericht); andere ROMs im Emulator geprüft.</span></label>
   <ul class="checks" id="checks" aria-live="polite"></ul>
   <div class="warnbox" style="margin-bottom:12px">
     <p style="margin:.2em 0" data-l="en"><b>At your own risk.</b> You use this patcher and the adjusted file entirely at your own risk. The authors accept no liability for any damage to your machine, its boards, lamps, EPROMs, data (settings, audits, high scores) or anything else, nor for any consequence of using it. Keep your original EPROM.</p>
@@ -227,11 +227,11 @@ function setLang(l) {
 document.querySelectorAll(".lang button").forEach((b) => b.onclick = () => setLang(b.dataset.set));
 
 // ROM table
-const STATUS = { device: ["on a real machine (measured)", "am echten Gerät (gemessen)"], emulator: ["emulator only", "nur Emulator"] };
+const STATUS = { device: ["on a real machine (measured)", "am echten Gerät (gemessen)"], report: ["real machine: use this one, ghosting gone (user report)", "echtes Gerät: diesen nehmen, Ghosting weg (Nutzerbericht)"], emulator: ["emulator only", "nur Emulator"] };
 const SUMS = { "c1c37212c983c40cfca011b2f93451b8949b4efb": "$75FF", "b7bdbd65b3c97d74a8814bd774ee4bb8bdc72c30": "$5EFF", "24d2562c6250c6234fa3ff0675290986fc064495": "$D9FF", "8f9975559192311e053bf738237d060703faffdd": "$37FF", "c19e2b44e0122837ede484fa6603dadfc68900a5": "$A1FF", "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06": "$59FF", "85b466d3bcf502ecf0600e37c2fda5e622c533b2": "$7DFF", "b394296977983a0ec401cd574f54758052878488": "$65FF" };
 function fillRoms() {
   $("#romtab tbody").innerHTML = Object.values(LedPatch.KNOWN).map((k) =>
-    `<tr><td>${k.name}</td><td><span class="tag ${k.status === "device" ? "m" : "v"}">${T(...STATUS[k.status])}</span></td><td><code>${SUMS[k.out] || "–"}</code>${k.altOut ? ` · ${T("alt.", "alt.")} <code>${SUMS[k.altOut]}</code>` : ""}</td></tr>`).join("");
+    `<tr><td>${k.name}</td><td><span class="tag ${k.status === "device" ? "m" : "v"}">${T(...STATUS[k.status])}</span></td><td><code>${SUMS[k.out] || "–"}</code>${k.altOut ? ` · ${T("alt.", "alt.")} <code>${SUMS[k.altOut]}</code>${k.altStatus ? ` <span class="tag m">${T(...STATUS[k.altStatus])}</span>` : ""}` : ""}</td></tr>`).join("");
 }
 
 // patcher
@@ -254,6 +254,7 @@ function show({ file, rom, sha, r, out, osha, alt }) {
   const li = (cls, txt) => `<li class="${cls}">${txt}</li>`;
   let h = li("info", `${file.name} · ${file.size} bytes · SHA1 <code>${sha}</code>`);
   if (r.known) h += li("ok", T(`Known ROM: ${r.known.name}`, `Bekannte ROM: ${r.known.name}`));
+  if (r.known && r.known.altStatus === "report" && !alt) h += li("bad", T("On a real machine the regular patch was not enough for this ROM – tick “Alternative patch” above.", "Am echten Gerät reichte der reguläre Patch für diese ROM nicht – oben „Alternativer Patch“ anhaken."));
   else if (r.ok) h += li("info", T("Unknown ROM – the lamp driver was found and all safety checks passed. Untested: try it in PinMAME first.", "Unbekannte ROM – Lampentreiber gefunden, alle Sicherheitsprüfungen bestanden. Ungetestet: erst in PinMAME ausprobieren."));
   r.reasons.forEach((m) => h += li("bad", m));
   if (r.ok) {

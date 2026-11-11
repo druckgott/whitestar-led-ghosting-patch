@@ -57,7 +57,8 @@ at the end of the ROM.
 
 **Alternative patch** (checkbox, not offered for TSPP): only if the regular patch still leaves
 ghosting. The row goes off earlier in the lamp interrupt, giving it about twice the time to turn
-off. Lamps about 5–8 % dimmer. Emulator-tested only.
+off. Lamps about 5–8 % dimmer. On a real Playboy it removed the ghosting the regular patch left
+(user report); other ROMs emulator-tested.
 
 ## Results
 
@@ -73,7 +74,7 @@ off. Lamps about 5–8 % dimmer. Emulator-tested only.
 | The Simpsons Pinball Party CPU 3.00 | emulator only | `$A1FF` |
 | The Simpsons Pinball Party CPU 2.04 | emulator only | `$59FF` |
 | The Lord of the Rings CPU 8.00 | emulator only | `$7DFF` (alternative `$75FF`) |
-| Playboy CPU 5.00 | emulator only | `$65FF` (alternative `$5EFF`) |
+| Playboy CPU 5.00 | real machine: regular patch not enough, **use the alternative** (ghosting gone, user report) | `$65FF` (alternative `$5EFF`) |
 
 Other Whitestar CPU ROMs: the patcher looks for the lamp driver and refuses unless all safety
 checks pass. Such ROMs are untested – try them in PinMAME first.
