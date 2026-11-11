@@ -55,6 +55,10 @@ in the emulator game and lamp shows keep their speed. The version text is
 the test menu differs. 48 bytes change in total; the new 29-byte routine sits in unused space
 at the end of the ROM.
 
+**Alternative patch** (checkbox, not offered for TSPP): only if the regular patch still leaves
+ghosting. The row goes off earlier in the lamp interrupt, giving it about twice the time to turn
+off. Lamps about 5–8 % dimmer. Emulator-tested only.
+
 ## Results
 
 | | Original | Patched | How |
@@ -68,8 +72,8 @@ at the end of the ROM.
 | The Simpsons Pinball Party CPU 4.00 | emulator only | `$37FF` |
 | The Simpsons Pinball Party CPU 3.00 | emulator only | `$A1FF` |
 | The Simpsons Pinball Party CPU 2.04 | emulator only | `$59FF` |
-| The Lord of the Rings CPU 8.00 | emulator only | `$7DFF` |
-| Playboy CPU 5.00 | emulator only | `$65FF` |
+| The Lord of the Rings CPU 8.00 | emulator only | `$7DFF` (alternative `$75FF`) |
+| Playboy CPU 5.00 | emulator only | `$65FF` (alternative `$5EFF`) |
 
 Other Whitestar CPU ROMs: the patcher looks for the lamp driver and refuses unless all safety
 checks pass. Such ROMs are untested – try them in PinMAME first.

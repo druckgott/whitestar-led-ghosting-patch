@@ -12,15 +12,15 @@
   const cpu = (off) => off - FIXED + 0x8000;
   const off = (adr) => adr - 0x8000 + FIXED;
 
-  // ROMs we have checked. "device" = burned and measured on a real machine, "emulator" = same lamp output
+  // ROMs we have checked (noAlt: alternative patch not offered, altOut: SHA1 of the alternative). "device" = burned and measured on a real machine, "emulator" = same lamp output
   // as the original in MAME, patch not yet run on a real machine. Key = SHA1 of the original CPU ROM.
   const KNOWN = {
-    "f3baaaa1b9f12a98109da55746031eb9f5f8790c": { name: "The Simpsons Pinball Party CPU 5.00", at: 0xFEA9, out: "24d2562c6250c6234fa3ff0675290986fc064495", status: "device" },
-    "573b20cac205b7989cdefceb2c31cb7d88c2951a": { name: "The Simpsons Pinball Party CPU 4.00", out: "8f9975559192311e053bf738237d060703faffdd", status: "emulator" },
-    "12875c845c12b6676aa0af7c717fdf074156d938": { name: "The Simpsons Pinball Party CPU 3.00", out: "c19e2b44e0122837ede484fa6603dadfc68900a5", status: "emulator" },
-    "78d793cecbc6561a891ff8007f33c63ec5515e9f": { name: "The Simpsons Pinball Party CPU 2.04", out: "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06", status: "emulator" },
-    "bd6fd25e17cee40d6bb842367b1ce922bbd46003": { name: "The Lord of the Rings CPU 8.00", out: "85b466d3bcf502ecf0600e37c2fda5e622c533b2", status: "emulator" },
-    "2aab64eee57e9569c3cc1bde28cda69ff4cacc69": { name: "Playboy CPU 5.00", out: "b394296977983a0ec401cd574f54758052878488", status: "emulator" },
+    "f3baaaa1b9f12a98109da55746031eb9f5f8790c": { name: "The Simpsons Pinball Party CPU 5.00", at: 0xFEA9, out: "24d2562c6250c6234fa3ff0675290986fc064495", status: "device", noAlt: true },
+    "573b20cac205b7989cdefceb2c31cb7d88c2951a": { name: "The Simpsons Pinball Party CPU 4.00", out: "8f9975559192311e053bf738237d060703faffdd", status: "emulator", noAlt: true },
+    "12875c845c12b6676aa0af7c717fdf074156d938": { name: "The Simpsons Pinball Party CPU 3.00", out: "c19e2b44e0122837ede484fa6603dadfc68900a5", status: "emulator", noAlt: true },
+    "78d793cecbc6561a891ff8007f33c63ec5515e9f": { name: "The Simpsons Pinball Party CPU 2.04", out: "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06", status: "emulator", noAlt: true },
+    "bd6fd25e17cee40d6bb842367b1ce922bbd46003": { name: "The Lord of the Rings CPU 8.00", out: "85b466d3bcf502ecf0600e37c2fda5e622c533b2", altOut: "c1c37212c983c40cfca011b2f93451b8949b4efb", status: "emulator" },
+    "2aab64eee57e9569c3cc1bde28cda69ff4cacc69": { name: "Playboy CPU 5.00", out: "b394296977983a0ec401cd574f54758052878488", altOut: "b7bdbd65b3c97d74a8814bd774ee4bb8bdc72c30", status: "emulator" },
   };
   const MARGIN = 16;             // unknown ROMs: keep 16 fill bytes after the last used byte
 
@@ -95,18 +95,48 @@
   // - no branch near the driver may target them,
   // - no jmp/jsr anywhere in the ROM may target them.
   // Over-cautious on purpose: a false alarm only means we refuse to patch.
-  function jumpsInto(rom, A, B, ranges) {
+  function jumpsInto(rom, A, B, ranges, more = []) {
     const hit = (t) => t !== null && ranges.some(([lo, hi]) => t >= cpu(lo) && t < cpu(hi));
     const hits = new Set();
     const scan = (from, to) => { let i = from; for (; i < to; i += len(rom, i)) if (hit(target(rom, i))) hits.add(i); return i; };
-    for (let s = A - 0x90; s < A; s++) { const h = new Set(hits); if (scan(s, A) !== A) { hits.clear(); h.forEach((x) => hits.add(x)); } }
-    scan(A, B + OUT_LEN + 0x90);
+    for (const [P, Q] of [[A, B + OUT_LEN], ...more]) {
+      for (let s = P - 0x90; s < P; s++) { const h = new Set(hits); if (scan(s, P) !== P) { hits.clear(); h.forEach((x) => hits.add(x)); } }
+      scan(P, Q + 0x90);
+    }
     for (let i = 0; i < rom.length - 2; i++) if ((rom[i] === 0x7E || rom[i] === 0xBD) && hit((rom[i + 1] << 8) | rom[i + 2])) hits.add(i);
     return [...hits];
   }
 
+  // Alternative patch: switch the row off at the start of the lamp interrupt (longer turn-off time).
+  // Interrupt entry: pshs a,b,x,y ; lda <dp ; beq T. At T: cmps #imm (4 bytes) or jsr (3 bytes).
+  function earlyOff(rom) {
+    const h = off((rom[0x1FFF6] << 8) | rom[0x1FFF7]);
+    if (h < FIXED || rom[h] !== 0x34 || rom[h + 1] !== 0x36 || rom[h + 2] !== 0x96 || rom[h + 4] !== 0x27) return null;
+    const T = h + 6 + ((rom[h + 5] << 24) >> 24);
+    const OFF = [0xCC, 0x00, 0x00, 0xFD, 0x20, 0x08];                                   // ldd #0 ; std $2008
+    if (rom[T] === 0x11 && rom[T + 1] === 0x8C) return { T, n: 4, op: 0x7E, code: (at) => [...OFF, ...rom.slice(T, T + 4), 0x7E, cpu(T + 4) >> 8, cpu(T + 4) & 0xFF] };
+    if (rom[T] === 0xBD) return { T, n: 3, op: 0xBD, code: () => [...OFF, 0x7E, rom[T + 1], rom[T + 2]] };
+    return null;
+  }
+
+  // After the removed "ldd #0" B must be loaded again before anything reads it (straight code only).
+  function bReloaded(rom, from, to) {
+    const idxB = (pb) => (pb & 0x80) && [5, 0xB].includes(pb & 0x0F);                     // b,r / d,r offsets read B
+    for (let i = from; i < to; i += len(rom, i)) {
+      const op = rom[i];
+      if ([0xC6, 0xD6, 0xE6, 0xF6, 0xCC, 0xDC, 0xEC, 0xFC, 0x5F].includes(op)) return !(op === 0xE6 || op === 0xEC) || !idxB(rom[i + 1]);
+      if (op === 0x10 && [0x8E, 0x9E, 0xAE, 0xBE, 0x9F, 0xAF, 0xBF].includes(rom[i + 1]) && !(rom[i + 1] >= 0xA0 && rom[i + 1] < 0xB0 && idxB(rom[i + 2]))) continue;
+      const ok = (op >= 0x40 && op < 0x50) || (op >= 0x80 && op < 0xC0 && ![0x8D, 0x9D, 0xAD, 0xBD, 0x83, 0x93, 0xA3, 0xB3].includes(op)) ||
+        (op >= 0x60 && op < 0x80 && op !== 0x6E && op !== 0x7E) || (op < 0x10 && op !== 0x0E) || (op >= 0x30 && op < 0x34);
+      if (!ok) return false;
+      if (((op >= 0x60 && op < 0x70) || (op >= 0xA0 && op < 0xB0) || (op >= 0x30 && op < 0x34)) && idxB(rom[i + 1])) return false;
+    }
+    return false;
+  }
+
   // Analyse a ROM. Returns {ok, patched, reasons[], plan} without changing anything.
-  function analyse(rom, sha1) {
+  // opt.alt: alternative patch (row off at interrupt start), for machines where the regular patch is not enough.
+  function analyse(rom, sha1, opt = {}) {
     const r = { ok: false, patched: false, known: KNOWN[sha1] || null, reasons: [] };
     const fail = (m) => { r.reasons.push(m); return r; };
     if (rom.length !== SIZE) return fail(`File size is ${rom.length} bytes, a Whitestar CPU ROM has 131072.`);
@@ -121,14 +151,22 @@
     const tab = (rom[B + shape.tab] << 8) | rom[B + shape.tab + 1], dp = rom[B + shape.dp];
     if (tab < 0x8000 || [0, 1, 2, 3, 4, 5, 6, 7].some((i) => rom[off(tab) + 2 * i] !== (1 << i) || rom[off(tab) + 2 * i + 1] !== 0))
       return fail("Row table does not have the expected layout (row 1 = driver output 0).");
-    const into = jumpsInto(rom, A, B, [[A + 3, A + 6], [B + 1, B + OUT_LEN]]);
+    let early = null;
+    if (opt.alt) {
+      early = earlyOff(rom);
+      if (!early) return fail("Alternative patch: interrupt start not recognised.");
+      if (rom[A + 9] !== 0xB6 || !bReloaded(rom, A + 9, B)) return fail("Alternative patch: registers after the clear step are not reloaded as expected.");
+    }
+    const ranges = [[early ? A + 2 : A + 3, early ? A + 9 : A + 6], [B + 1, B + OUT_LEN]].concat(early ? [[early.T + 1, early.T + early.n]] : []);
+    const into = jumpsInto(rom, A, B, ranges, early ? [[early.T, early.T + early.n]] : []);
     if (into.length) return fail(`Something may jump into the driver code (at file offset ${into.map((x) => x.toString(16)).join(", ")}).`);
     let end = CK; while (rom[end - 1] === 0xFF) end--;                                   // trailing $FF fill before $FFED
     const code = routine(shape, tab, dp);
     const at = r.known && r.known.at ? r.known.at : cpu(end) + MARGIN;
+    if (early) code.push(...early.code(at));
     if (cpu(end) > at) return fail("Free space differs from the known ROM.");
     if (off(at) + code.length > CK - 4) return fail("Not enough free space at the end of the ROM.");
-    r.plan = { clear: A, out: B, call: shape.call, tab, dp, at, code };
+    r.plan = { clear: A, out: B, call: shape.call, tab, dp, at, code, early: early && { T: early.T, n: early.n, op: early.op, to: at + routine(shape, tab, dp).length } };
     r.ok = true;
     return r;
   }
@@ -136,7 +174,11 @@
   // Apply the plan. Returns a new Uint8Array; the input stays unchanged.
   function apply(rom, plan) {
     const o = Uint8Array.from(rom);
-    o.set([0x12, 0x12, 0x12], plan.clear + 3);                                            // keep old column data (was: clear it)
+    if (plan.early) {                                                                     // row already off at interrupt start: skip clear step
+      o.set([0x20, 0x07, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12], plan.clear);
+      const e = plan.early;
+      o.set([e.op, e.to >> 8, e.to & 0xFF].concat(Array(e.n - 3).fill(0x12)), e.T);
+    } else o.set([0x12, 0x12, 0x12], plan.clear + 3);                                     // keep old column data (was: clear it)
     o.set([plan.call, plan.at >> 8, plan.at & 0xFF].concat(Array(OUT_LEN - 3).fill(0x12)), plan.out);  // jmp/jsr to new routine
     o.set(plan.code, off(plan.at));
     // Stern checksum: 8-bit sum $FF via balance byte $FFED, word $FFEE = 16-bit sum.

@@ -83,6 +83,8 @@ footer{margin-top:3em;font-size:.9rem;color:var(--mute)}
     <span class="mute" data-l="en">128 KB file, e.g. <code>spp-cpu.500</code> from your EPROM or your PinMAME set</span>
     <span class="mute" data-l="de">128-KB-Datei, z. B. <code>spp-cpu.500</code> aus deinem EPROM oder PinMAME-Satz</span>
   </label>
+  <label id="altbox" style="display:none;gap:8px;align-items:flex-start;margin:8px 0"><input type="checkbox" id="alt" style="margin-top:5px">
+    <span data-l="en"><b>Alternative patch</b> – only if the regular patch still leaves ghosting on your machine. Switches the row off earlier; lamps about 5–8 % dimmer. Emulator-tested, not yet on a real machine.</span><span data-l="de"><b>Alternativer Patch</b> – nur, wenn der reguläre Patch an deinem Gerät noch Ghosting zeigt. Schaltet die Zeile früher aus; Lampen etwa 5–8 % dunkler. Im Emulator geprüft, noch nicht am Gerät.</span></label>
   <ul class="checks" id="checks" aria-live="polite"></ul>
   <div class="warnbox" style="margin-bottom:12px">
     <p style="margin:.2em 0" data-l="en"><b>At your own risk.</b> You use this patcher and the adjusted file entirely at your own risk. The authors accept no liability for any damage to your machine, its boards, lamps, EPROMs, data (settings, audits, high scores) or anything else, nor for any consequence of using it. Keep your original EPROM.</p>
@@ -226,10 +228,10 @@ document.querySelectorAll(".lang button").forEach((b) => b.onclick = () => setLa
 
 // ROM table
 const STATUS = { device: ["on a real machine (measured)", "am echten Gerät (gemessen)"], emulator: ["emulator only", "nur Emulator"] };
-const SUMS = { "24d2562c6250c6234fa3ff0675290986fc064495": "$D9FF", "8f9975559192311e053bf738237d060703faffdd": "$37FF", "c19e2b44e0122837ede484fa6603dadfc68900a5": "$A1FF", "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06": "$59FF", "85b466d3bcf502ecf0600e37c2fda5e622c533b2": "$7DFF", "b394296977983a0ec401cd574f54758052878488": "$65FF" };
+const SUMS = { "c1c37212c983c40cfca011b2f93451b8949b4efb": "$75FF", "b7bdbd65b3c97d74a8814bd774ee4bb8bdc72c30": "$5EFF", "24d2562c6250c6234fa3ff0675290986fc064495": "$D9FF", "8f9975559192311e053bf738237d060703faffdd": "$37FF", "c19e2b44e0122837ede484fa6603dadfc68900a5": "$A1FF", "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06": "$59FF", "85b466d3bcf502ecf0600e37c2fda5e622c533b2": "$7DFF", "b394296977983a0ec401cd574f54758052878488": "$65FF" };
 function fillRoms() {
   $("#romtab tbody").innerHTML = Object.values(LedPatch.KNOWN).map((k) =>
-    `<tr><td>${k.name}</td><td><span class="tag ${k.status === "device" ? "m" : "v"}">${T(...STATUS[k.status])}</span></td><td><code>${SUMS[k.out] || "–"}</code></td></tr>`).join("");
+    `<tr><td>${k.name}</td><td><span class="tag ${k.status === "device" ? "m" : "v"}">${T(...STATUS[k.status])}</span></td><td><code>${SUMS[k.out] || "–"}</code>${k.altOut ? ` · ${T("alt.", "alt.")} <code>${SUMS[k.altOut]}</code>` : ""}</td></tr>`).join("");
 }
 
 // patcher
@@ -238,27 +240,33 @@ const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart
 async function handle(file) {
   const rom = new Uint8Array(await file.arrayBuffer());
   const sha = hex(await crypto.subtle.digest("SHA-1", rom));
-  const r = LedPatch.analyse(rom, sha);
+  const base = LedPatch.analyse(rom, sha);
+  const offer = base.ok && !(base.known && base.known.noAlt) && LedPatch.analyse(rom, sha, { alt: true }).ok;
+  $("#altbox").style.display = offer ? "flex" : "none";
+  const alt = offer && $("#alt").checked;
+  const r = alt ? LedPatch.analyse(rom, sha, { alt }) : base;
   let out = null, osha = null;
   if (r.ok) { out = LedPatch.apply(rom, r.plan); osha = hex(await crypto.subtle.digest("SHA-1", out)); }
-  last = { file, rom, sha, r, out, osha };
+  last = { file, rom, sha, r, out, osha, alt };
   show(last);
 }
-function show({ file, rom, sha, r, out, osha }) {
+function show({ file, rom, sha, r, out, osha, alt }) {
   const li = (cls, txt) => `<li class="${cls}">${txt}</li>`;
   let h = li("info", `${file.name} · ${file.size} bytes · SHA1 <code>${sha}</code>`);
   if (r.known) h += li("ok", T(`Known ROM: ${r.known.name}`, `Bekannte ROM: ${r.known.name}`));
   else if (r.ok) h += li("info", T("Unknown ROM – the lamp driver was found and all safety checks passed. Untested: try it in PinMAME first.", "Unbekannte ROM – Lampentreiber gefunden, alle Sicherheitsprüfungen bestanden. Ungetestet: erst in PinMAME ausprobieren."));
   r.reasons.forEach((m) => h += li("bad", m));
   if (r.ok) {
-    const good = !r.known || r.known.out === osha;
+    const exp = r.known && (alt ? r.known.altOut : r.known.out);
+    const good = !exp || exp === osha;
     const n = out.reduce((s, b, i) => s + (b !== rom[i]), 0);
     h += li(good ? "ok" : "bad", T(`Patched: ${n} bytes changed, checksum re-balanced`, `Gepatcht: ${n} Bytes geändert, Prüfsumme ausgeglichen`) + ` · SHA1 <code>${osha}</code>` +
-      (r.known ? (good ? T(" = expected result", " = erwartetes Ergebnis") : T(" ≠ expected result, do not use", " ≠ erwartetes Ergebnis, nicht verwenden")) : ""));
+      (exp ? (good ? T(" = expected result", " = erwartetes Ergebnis") : T(" ≠ expected result, do not use", " ≠ erwartetes Ergebnis, nicht verwenden")) : ""));
     h += li("info", T(`Test-menu checksum after burning: $${LedPatch.sum16(out).toString(16).toUpperCase()}`, `Prüfsumme im Testmenü nach dem Brennen: $${LedPatch.sum16(out).toString(16).toUpperCase()}`));
     if (good) {
       const dot = file.name.lastIndexOf(".");
-      outName = dot > 0 ? file.name.slice(0, dot) + "_led" + file.name.slice(dot) : file.name + "_led";
+      const tag = alt ? "_led_alt" : "_led";
+      outName = dot > 0 ? file.name.slice(0, dot) + tag + file.name.slice(dot) : file.name + tag;
       outBlob = new Blob([out], { type: "application/octet-stream" });
     } else outBlob = null;
   } else outBlob = null;
@@ -267,6 +275,7 @@ function show({ file, rom, sha, r, out, osha }) {
 }
 const syncDl = () => { $("#dl").disabled = !(outBlob && $("#agree").checked); };
 $("#agree").onchange = syncDl;
+$("#alt").onchange = () => last && handle(last.file);
 $("#file").onchange = (e) => e.target.files[0] && handle(e.target.files[0]);
 const drop = $("#drop");
 drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("hover"); };
