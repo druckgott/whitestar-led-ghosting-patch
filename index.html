@@ -170,7 +170,7 @@ footer{margin-top:3em;font-size:.9rem;color:var(--mute)}
     <tbody>
       <tr><td><span data-l="en">Current through LED of lamp 3 while lamp 11 is on (TSPP 5.00)</span><span data-l="de">Strom durch LED von Lampe 3, während Lampe 11 leuchtet (TSPP 5.00)</span></td><td>60–110 µA</td><td>0.0 µA</td><td><span class="tag m" data-l="en">measured</span><span class="tag m" data-l="de">gemessen</span> <span data-l="en">multimeter in series, real machine</span><span data-l="de">Multimeter in Reihe, echtes Gerät</span></td></tr>
       <tr><td><span data-l="en">Same LED (lamp 3) while any other lamp is selected in the single lamp test</span><span data-l="de">Dieselbe LED (Lampe 3), während im Single Lamp Test eine andere Lampe gewählt ist</span></td><td>–</td><td>0.0 µA</td><td><span class="tag m" data-l="en">measured</span><span class="tag m" data-l="de">gemessen</span></td></tr>
-      <tr><td><span data-l="en">Same lamps lit, same lamp-on time (±0.3 %), same watchdog timing</span><span data-l="de">Dieselben Lampen an, gleiche Leuchtzeit (±0,3 %), gleicher Watchdog-Takt</span></td><td colspan="2"><span data-l="en">identical in all ROMs listed below</span><span data-l="de">gleich in allen ROMs unten</span></td><td><span class="tag m" data-l="en">emulator</span><span class="tag m" data-l="de">Emulator</span> MAME</td></tr>
+      <tr><td><span data-l="en">Same lamps lit, same lamp-on time (±0.7 %), same watchdog timing</span><span data-l="de">Dieselben Lampen an, gleiche Leuchtzeit (±0,7 %), gleicher Watchdog-Takt</span></td><td colspan="2"><span data-l="en">identical in all ROMs listed below</span><span data-l="de">gleich in allen ROMs unten</span></td><td><span class="tag m" data-l="en">emulator</span><span class="tag m" data-l="de">Emulator</span> MAME</td></tr>
       <tr><td><span data-l="en">Brightness of the LEDs</span><span data-l="de">Helligkeit der LEDs</span></td><td>100 %</td><td>≈ 101–105 %</td><td><span class="tag f" data-l="en">model</span><span class="tag f" data-l="de">Modell</span></td></tr>
     </tbody>
   </table></div>
@@ -226,7 +226,7 @@ document.querySelectorAll(".lang button").forEach((b) => b.onclick = () => setLa
 
 // ROM table
 const STATUS = { device: ["on a real machine (measured)", "am echten Gerät (gemessen)"], emulator: ["emulator only", "nur Emulator"] };
-const SUMS = { "24d2562c6250c6234fa3ff0675290986fc064495": "$D9FF", "8f9975559192311e053bf738237d060703faffdd": "$37FF", "c19e2b44e0122837ede484fa6603dadfc68900a5": "$A1FF", "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06": "$59FF", "85b466d3bcf502ecf0600e37c2fda5e622c533b2": "$7DFF" };
+const SUMS = { "24d2562c6250c6234fa3ff0675290986fc064495": "$D9FF", "8f9975559192311e053bf738237d060703faffdd": "$37FF", "c19e2b44e0122837ede484fa6603dadfc68900a5": "$A1FF", "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06": "$59FF", "85b466d3bcf502ecf0600e37c2fda5e622c533b2": "$7DFF", "b394296977983a0ec401cd574f54758052878488": "$65FF" };
 function fillRoms() {
   $("#romtab tbody").innerHTML = Object.values(LedPatch.KNOWN).map((k) =>
     `<tr><td>${k.name}</td><td><span class="tag ${k.status === "device" ? "m" : "v"}">${T(...STATUS[k.status])}</span></td><td><code>${SUMS[k.out] || "–"}</code></td></tr>`).join("");
@@ -244,7 +244,7 @@ async function handle(file) {
   last = { file, rom, sha, r, out, osha };
   show(last);
 }
-function show({ file, sha, r, out, osha }) {
+function show({ file, rom, sha, r, out, osha }) {
   const li = (cls, txt) => `<li class="${cls}">${txt}</li>`;
   let h = li("info", `${file.name} · ${file.size} bytes · SHA1 <code>${sha}</code>`);
   if (r.known) h += li("ok", T(`Known ROM: ${r.known.name}`, `Bekannte ROM: ${r.known.name}`));
@@ -252,7 +252,8 @@ function show({ file, sha, r, out, osha }) {
   r.reasons.forEach((m) => h += li("bad", m));
   if (r.ok) {
     const good = !r.known || r.known.out === osha;
-    h += li(good ? "ok" : "bad", T("Patched: 48 bytes changed, checksum re-balanced", "Gepatcht: 48 Bytes geändert, Prüfsumme ausgeglichen") + ` · SHA1 <code>${osha}</code>` +
+    const n = out.reduce((s, b, i) => s + (b !== rom[i]), 0);
+    h += li(good ? "ok" : "bad", T(`Patched: ${n} bytes changed, checksum re-balanced`, `Gepatcht: ${n} Bytes geändert, Prüfsumme ausgeglichen`) + ` · SHA1 <code>${osha}</code>` +
       (r.known ? (good ? T(" = expected result", " = erwartetes Ergebnis") : T(" ≠ expected result, do not use", " ≠ erwartetes Ergebnis, nicht verwenden")) : ""));
     h += li("info", T(`Test-menu checksum after burning: $${LedPatch.sum16(out).toString(16).toUpperCase()}`, `Prüfsumme im Testmenü nach dem Brennen: $${LedPatch.sum16(out).toString(16).toUpperCase()}`));
     if (good) {

@@ -60,7 +60,7 @@ at the end of the ROM.
 | | Original | Patched | How |
 |---|---|---|---|
 | Current through LED of lamp 3 while lamp 11 is lit (TSPP 5.00) | 60–110 µA | 0.0 µA | measured, multimeter, real machine |
-| Lamps lit, lamp-on time, watchdog timing | – | same (±0.3 %) | MAME, all ROMs below |
+| Lamps lit, lamp-on time, watchdog timing | – | same (±0.7 %) | MAME, all ROMs below |
 
 | ROM | Status | Test-menu checksum after patch |
 |---|---|---|
@@ -69,6 +69,7 @@ at the end of the ROM.
 | The Simpsons Pinball Party CPU 3.00 | emulator only | `$A1FF` |
 | The Simpsons Pinball Party CPU 2.04 | emulator only | `$59FF` |
 | The Lord of the Rings CPU 8.00 | emulator only | `$7DFF` |
+| Playboy CPU 5.00 | emulator only | `$65FF` |
 
 Other Whitestar CPU ROMs: the patcher looks for the lamp driver and refuses unless all safety
 checks pass. Such ROMs are untested – try them in PinMAME first.

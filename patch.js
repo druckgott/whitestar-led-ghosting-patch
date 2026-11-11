@@ -20,21 +20,30 @@
     "12875c845c12b6676aa0af7c717fdf074156d938": { name: "The Simpsons Pinball Party CPU 3.00", out: "c19e2b44e0122837ede484fa6603dadfc68900a5", status: "emulator" },
     "78d793cecbc6561a891ff8007f33c63ec5515e9f": { name: "The Simpsons Pinball Party CPU 2.04", out: "7e34288aa07ba76a4fd61ccb60f7f53c6bb7bf06", status: "emulator" },
     "bd6fd25e17cee40d6bb842367b1ce922bbd46003": { name: "The Lord of the Rings CPU 8.00", out: "85b466d3bcf502ecf0600e37c2fda5e622c533b2", status: "emulator" },
+    "2aab64eee57e9569c3cc1bde28cda69ff4cacc69": { name: "Playboy CPU 5.00", out: "b394296977983a0ec401cd574f54758052878488", status: "emulator" },
   };
   const MARGIN = 16;             // unknown ROMs: keep 16 fill bytes after the last used byte
 
-  // Our new output routine (29 bytes). TT TT = row table, DP = scratch byte of the driver.
-  //   ldx #TABLE ; ldd <DP ; abx ; sta $200A ; bne on
+  // Our new output routine. TT TT = row table, DP = scratch byte of the driver.
+  //   ldx #TABLE ; <load column and row> ; abx ; sta $200A ; bne on
   //   tstb ; bne ret ; lda #1 ; sta $2008 ; stb $2008 ; ret: rts      (empty row: 2.5 us pulse on row 1 only)
   //   on: ldd ,x ; std $2008 ; rts
-  const routine = (tab, dp) => [0x8E, tab >> 8, tab & 0xFF, 0xDC, dp, 0x3A, 0xB7, 0x20, 0x0A, 0x26, 0x0C, 0x5D, 0x26, 0x08,
-    0x86, 0x01, 0xB7, 0x20, 0x08, 0xF7, 0x20, 0x08, 0x39, 0xEC, 0x84, 0xFD, 0x20, 0x08, 0x39];
+  const TAIL = [0x3A, 0xB7, 0x20, 0x0A, 0x26, 0x0C, 0x5D, 0x26, 0x08, 0x86, 0x01, 0xB7, 0x20, 0x08, 0xF7, 0x20, 0x08, 0x39,
+    0xEC, 0x84, 0xFD, 0x20, 0x08, 0x39];
 
   // Search patterns (-1 = any byte): the two places where any program must write the lamp ports
   // $2008/$200A of the Whitestar I/O board. Short, fixed by the hardware addresses.
   const SIG_CLEAR = [0xCC, 0x00, 0x00, 0xB7, 0x20, 0x0A, 0xFD, 0x20, 0x08];
-  const SIG_OUT = [0xDC, -1, 0xB7, 0x20, 0x0A, 0x8E, -1, -1, 0xEC, 0x85, 0xFD, 0x20, 0x08, 0x39];
-  const SIG_DONE = [0xDC, -1, 0x3A, 0xB7, 0x20, 0x0A, 0x26, 0x0C, 0x5D, 0x26, 0x08, 0x86, 0x01];   // start of our routine = already patched
+  // Output step, two variants: at the end of the driver (jmp) or inside it (jsr).
+  const SHAPES = [
+    { sig: [0xDC, -1, 0xB7, 0x20, 0x0A, 0x8E, -1, -1, 0xEC, 0x85, 0xFD, 0x20, 0x08, 0x39], dp: 1, tab: 6, call: 0x7E,
+      head: (dp) => [0xDC, dp] },
+    { sig: [0xB7, 0x20, 0x0A, 0xD6, -1, 0x58, 0x8E, -1, -1, 0xEC, 0x85, 0xFD, 0x20, 0x08, 0x96, -1, 0x4C, 0x81, 0x0A, 0x25, -1, 0x4F, 0x7C],
+      dp: 4, tab: 7, call: 0xBD, head: (dp) => [0xD6, dp, 0x58] },
+  ];
+  const OUT_LEN = 14;            // bytes of the output step we overwrite (both shapes)
+  const routine = (s, tab, dp) => [0x8E, tab >> 8, tab & 0xFF, ...s.head(dp), ...TAIL];
+  const DONE = SHAPES.map((s) => [...s.head(-1), ...TAIL.slice(0, 11)]);   // start of our routine = already patched
 
   function find(rom, pat, from = 0, to = rom.length) {
     const hits = [];
@@ -83,17 +92,17 @@
   }
 
   // Can control reach the bytes we overwrite other than by falling through from the instruction before?
-  // - the driver must start right after an unconditional jmp/rts (no fall-in from code above),
-  // - no branch inside the driver (decoded instruction by instruction) may target them,
-  // - no jmp/jsr extended anywhere in the ROM may target them.
+  // - no branch near the driver may target them,
+  // - no jmp/jsr anywhere in the ROM may target them.
   // Over-cautious on purpose: a false alarm only means we refuse to patch.
   function jumpsInto(rom, A, B, ranges) {
     const hit = (t) => t !== null && ranges.some(([lo, hi]) => t >= cpu(lo) && t < cpu(hi));
-    const hits = [];
-    if (!(rom[A - 3] === 0x7E || rom[A - 1] === 0x39)) hits.push(A - 1);
-    for (let i = A; i < B + 14; i += len(rom, i)) if (hit(target(rom, i))) hits.push(i);
-    for (let i = 0; i < rom.length - 2; i++) if ((rom[i] === 0x7E || rom[i] === 0xBD) && hit((rom[i + 1] << 8) | rom[i + 2])) hits.push(i);
-    return hits;
+    const hits = new Set();
+    const scan = (from, to) => { let i = from; for (; i < to; i += len(rom, i)) if (hit(target(rom, i))) hits.add(i); return i; };
+    for (let s = A - 0x90; s < A; s++) { const h = new Set(hits); if (scan(s, A) !== A) { hits.clear(); h.forEach((x) => hits.add(x)); } }
+    scan(A, B + OUT_LEN + 0x90);
+    for (let i = 0; i < rom.length - 2; i++) if ((rom[i] === 0x7E || rom[i] === 0xBD) && hit((rom[i + 1] << 8) | rom[i + 2])) hits.add(i);
+    return [...hits];
   }
 
   // Analyse a ROM. Returns {ok, patched, reasons[], plan} without changing anything.
@@ -102,23 +111,24 @@
     const fail = (m) => { r.reasons.push(m); return r; };
     if (rom.length !== SIZE) return fail(`File size is ${rom.length} bytes, a Whitestar CPU ROM has 131072.`);
     if (!checksumOk(rom)) return fail("Stern checksum does not match: file is damaged, not a Whitestar CPU ROM, or already modified.");
-    if (find(rom, SIG_DONE, FIXED).length) { r.patched = true; return fail("This ROM already contains the LED patch."); }
-    const a = find(rom, SIG_CLEAR, FIXED), b = find(rom, SIG_OUT, FIXED);
+    if (DONE.some((d) => find(rom, d, FIXED).length)) { r.patched = true; return fail("This ROM already contains the LED patch."); }
+    const a = find(rom, SIG_CLEAR, FIXED);
+    const b = SHAPES.flatMap((shape) => find(rom, shape.sig, FIXED).map((at) => ({ shape, at })));
     if (a.length !== 1) return fail(`Lamp driver "clear" step found ${a.length} times (need exactly 1).`);
     if (b.length !== 1) return fail(`Lamp driver "output" step found ${b.length} times (need exactly 1).`);
-    const A = a[0], B = b[0];
+    const A = a[0], B = b[0].at, shape = b[0].shape;
     if (!(B > A && B - A < 0x200)) return fail("The two driver steps are not in one routine.");
-    const tab = (rom[B + 6] << 8) | rom[B + 7], dp = rom[B + 1];
+    const tab = (rom[B + shape.tab] << 8) | rom[B + shape.tab + 1], dp = rom[B + shape.dp];
     if (tab < 0x8000 || [0, 1, 2, 3, 4, 5, 6, 7].some((i) => rom[off(tab) + 2 * i] !== (1 << i) || rom[off(tab) + 2 * i + 1] !== 0))
       return fail("Row table does not have the expected layout (row 1 = driver output 0).");
-    const into = jumpsInto(rom, A, B, [[A + 3, A + 6], [B + 1, B + SIG_OUT.length]]);
+    const into = jumpsInto(rom, A, B, [[A + 3, A + 6], [B + 1, B + OUT_LEN]]);
     if (into.length) return fail(`Something may jump into the driver code (at file offset ${into.map((x) => x.toString(16)).join(", ")}).`);
     let end = CK; while (rom[end - 1] === 0xFF) end--;                                   // trailing $FF fill before $FFED
-    const code = routine(tab, dp);
+    const code = routine(shape, tab, dp);
     const at = r.known && r.known.at ? r.known.at : cpu(end) + MARGIN;
     if (cpu(end) > at) return fail("Free space differs from the known ROM.");
     if (off(at) + code.length > CK - 4) return fail("Not enough free space at the end of the ROM.");
-    r.plan = { clear: A, out: B, tab, dp, at, code };
+    r.plan = { clear: A, out: B, call: shape.call, tab, dp, at, code };
     r.ok = true;
     return r;
   }
@@ -127,7 +137,7 @@
   function apply(rom, plan) {
     const o = Uint8Array.from(rom);
     o.set([0x12, 0x12, 0x12], plan.clear + 3);                                            // keep old column data (was: clear it)
-    o.set([0x7E, plan.at >> 8, plan.at & 0xFF].concat(Array(11).fill(0x12)), plan.out);  // jmp to new output routine
+    o.set([plan.call, plan.at >> 8, plan.at & 0xFF].concat(Array(OUT_LEN - 3).fill(0x12)), plan.out);  // jmp/jsr to new routine
     o.set(plan.code, off(plan.at));
     // Stern checksum: 8-bit sum $FF via balance byte $FFED, word $FFEE = 16-bit sum.
     let s0 = 0; for (let i = 0; i < o.length; i++) if (i < CK || i > CK + 2) s0 += o[i];
